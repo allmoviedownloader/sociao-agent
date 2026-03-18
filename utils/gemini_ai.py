@@ -1,17 +1,41 @@
 """
 Gemini AI module - Uses direct REST API (no SDK needed).
 No compilation, no grpcio, works on Termux/ARM.
+Includes rate limit handling and automatic cooldown.
 """
+import time
+import asyncio
 import aiohttp
 from bot.config import GEMINI_API_KEY
 from utils.logger import logger
 
 GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
 
+# Rate limiting — track when we last hit a 429
+_last_429_time = 0
+_cooldown_seconds = 60  # Wait 60 seconds after hitting 429
+
+
+def _is_on_cooldown() -> bool:
+    """Check if we should skip API calls due to recent 429 error."""
+    global _last_429_time
+    if _last_429_time == 0:
+        return False
+    elapsed = time.time() - _last_429_time
+    return elapsed < _cooldown_seconds
+
 
 async def _call_gemini(prompt: str) -> str:
-    """Call Gemini API directly via HTTP POST."""
+    """Call Gemini API directly via HTTP POST with rate limit handling."""
+    global _last_429_time
+
     if not GEMINI_API_KEY:
+        return ""
+
+    # If we recently hit a 429, don't spam the API
+    if _is_on_cooldown():
+        remaining = int(_cooldown_seconds - (time.time() - _last_429_time))
+        logger.warning(f"⏳ Gemini on cooldown, {remaining}s remaining")
         return ""
 
     url = f"{GEMINI_API_URL}?key={GEMINI_API_KEY}"
@@ -25,15 +49,25 @@ async def _call_gemini(prompt: str) -> str:
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload) as resp:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                 if resp.status == 200:
                     data = await resp.json()
+                    # Reset cooldown on success
+                    _last_429_time = 0
                     text = data["candidates"][0]["content"]["parts"][0]["text"]
                     return text.strip()
+                elif resp.status == 429:
+                    # Rate limited — set cooldown
+                    _last_429_time = time.time()
+                    logger.warning("⚠️ Gemini API quota exceeded, cooling down 60s...")
+                    return ""
                 else:
                     error = await resp.text()
                     logger.error(f"Gemini API error {resp.status}: {error[:200]}")
                     return ""
+    except asyncio.TimeoutError:
+        logger.error("Gemini API timeout (30s)")
+        return ""
     except Exception as e:
         logger.error(f"Gemini API call failed: {e}")
         return ""
@@ -126,7 +160,7 @@ async def rewrite_caption_custom(
 Write ONLY the output, nothing else."""
 
     result = await _call_gemini(prompt)
-    return result if result else f"❌ Generation failed"
+    return result if result else "❌ Generation failed"
 
 
 async def chat_with_ai(user_message: str, context: str = "") -> str:
@@ -171,7 +205,13 @@ User says: {user_message}
 Reply naturally (keep it concise, 2-10 lines max):"""
 
     result = await _call_gemini(prompt)
-    return result if result else "Bhai sorry, thoda issue aa gaya. Phir se try kar! 🙏"
+    if result:
+        return result
+
+    # Friendly fallback when API is down or rate limited
+    if _is_on_cooldown():
+        return "🙏 Bhai abhi API thoda rest le raha hai (quota limit). 1 minute mein try kar phir se!"
+    return "Bhai sorry, thoda issue aa gaya. Phir se try kar! 🙏"
 
 
 async def research_trending(niche: str = "entertainment") -> str:
@@ -190,7 +230,11 @@ Be specific with actual examples and trends. Format nicely with emojis.
 Keep it actionable and practical. Output in Hinglish."""
 
     result = await _call_gemini(prompt)
-    return result if result else "❌ Research failed. Try again!"
+    if result:
+        return result
+    if _is_on_cooldown():
+        return "⏳ API quota limit hit. 1 minute baad try karo!"
+    return "❌ Research failed. Try again!"
 
 
 async def create_strategy(goal: str = "grow followers", days: int = 7) -> str:
@@ -213,5 +257,8 @@ Make it realistic and actionable. Format with emojis. Output in Hinglish.
 Keep each day's plan concise (3-4 lines max per day)."""
 
     result = await _call_gemini(prompt)
-    return result if result else "❌ Strategy creation failed. Try again!"
-
+    if result:
+        return result
+    if _is_on_cooldown():
+        return "⏳ API quota limit hit. 1 minute baad try karo!"
+    return "❌ Strategy creation failed. Try again!"
