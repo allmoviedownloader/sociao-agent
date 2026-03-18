@@ -1,0 +1,8 @@
+aiogram
+instagrapi
+requests
+apscheduler
+aiosqlite
+python-dotenv
+aiohttp
+aiofiles

@@ -1,0 +1,23 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data & Downloads
+downloads/
+data/
+*.db
+logs/
+
+# Instagram sessions
+*.session
+*.json
+!package.json
+
+# OS
+.DS_Store
+Thumbs.db
