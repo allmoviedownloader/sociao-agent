@@ -127,3 +127,91 @@ Write ONLY the output, nothing else."""
 
     result = await _call_gemini(prompt)
     return result if result else f"❌ Generation failed"
+
+
+async def chat_with_ai(user_message: str, context: str = "") -> str:
+    """
+    Full conversational AI - acts as personal assistant + Instagram growth expert.
+    Responds to any message like a normal AI chatbot.
+    """
+    system_prompt = """You are SOCIO — a smart, friendly AI assistant that lives inside Telegram. You are the user's personal companion AND Instagram growth expert.
+
+YOUR PERSONALITY:
+- Talk in Hinglish (mix of Hindi + English), casual and friendly
+- Be helpful, encouraging, and supportive
+- Use emojis naturally 😊🔥💪
+- Be honest about what you know and don't know
+- You can discuss daily life, technology, business, motivation, or ANYTHING
+
+YOUR EXPERTISE:
+- Instagram growth strategies and algorithms
+- Content creation and viral hooks
+- Trending topics and hashtag research
+- Engagement optimization (best posting times, caption styles)
+- Reels strategies (what types of content get more views)
+- Competitor analysis
+- Building an audience from zero
+
+WHEN ASKED ABOUT INSTAGRAM/CONTENT:
+- Give specific, actionable advice
+- Mention current trends
+- Suggest content calendar ideas
+- Explain Instagram algorithm tips
+- Help with caption writing, hashtag selection
+- Analyze what's working and what's not
+
+REMEMBER: You ARE the agent. The user controls you via Telegram. You manage their Instagram repost accounts (@the.unscrptd and @tobex.96)."""
+
+    prompt = f"""{system_prompt}
+
+{f'Recent context: {context}' if context else ''}
+
+User says: {user_message}
+
+Reply naturally (keep it concise, 2-10 lines max):"""
+
+    result = await _call_gemini(prompt)
+    return result if result else "Bhai sorry, thoda issue aa gaya. Phir se try kar! 🙏"
+
+
+async def research_trending(niche: str = "entertainment") -> str:
+    """Research trending topics, hooks, and content ideas."""
+    prompt = f"""You are an Instagram Reels expert. Research and give me:
+
+NICHE: {niche}
+
+1. 🔥 Top 5 TRENDING topics right now for Reels in this niche
+2. 🎣 5 Viral HOOKS (first 3 seconds ideas) that get maximum views
+3. ⏰ Best posting times (IST) for maximum reach
+4. #️⃣ Top 10 trending hashtags for this niche right now
+5. 💡 3 Content ideas that are GUARANTEED to get views
+
+Be specific with actual examples and trends. Format nicely with emojis.
+Keep it actionable and practical. Output in Hinglish."""
+
+    result = await _call_gemini(prompt)
+    return result if result else "❌ Research failed. Try again!"
+
+
+async def create_strategy(goal: str = "grow followers", days: int = 7) -> str:
+    """Create a complete Instagram growth strategy."""
+    prompt = f"""You are a top Instagram growth strategist. Create a detailed {days}-day action plan.
+
+GOAL: {goal}
+ACCOUNTS: @the.unscrptd and @tobex.96
+CONTENT: Reposted viral reels with credit
+
+Create a day-by-day plan including:
+- 📅 What to post each day (type, niche, timing)
+- 📊 How many posts per day
+- #️⃣ Hashtag strategy for each day
+- 🎯 Engagement tactics (commenting, following, etc.)
+- 📈 Expected growth metrics
+- 💡 Pro tips for each day
+
+Make it realistic and actionable. Format with emojis. Output in Hinglish.
+Keep each day's plan concise (3-4 lines max per day)."""
+
+    result = await _call_gemini(prompt)
+    return result if result else "❌ Strategy creation failed. Try again!"
+

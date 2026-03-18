@@ -812,3 +812,116 @@ async def cmd_daily_status(message: Message):
 
     await message.answer(text, parse_mode=ParseMode.MARKDOWN)
 
+
+
+# ═══════════════════════════════════════
+#  /update - Pull from GitHub & Restart
+# ═══════════════════════════════════════
+@router.message(Command('update'))
+async def cmd_update(message: Message):
+    if not is_admin(message):
+        return
+
+    await message.answer('�� Pulling latest code from GitHub...')
+
+    import subprocess
+    import sys
+    import os
+
+    try:
+        cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        result = subprocess.run(
+            ['git', 'pull', 'origin', 'main'],
+            capture_output=True, text=True, cwd=cwd,
+            timeout=30,
+        )
+
+        if result.returncode == 0:
+            output = result.stdout.strip()
+            if 'Already up to date' in output:
+                await message.answer('✅ Already up to date! No changes.')
+                return
+
+            await message.answer(
+                f'✅ Code updated!\n{output[:500]}\n\n🔄 Restarting bot in 2 seconds...',
+            )
+            await asyncio.sleep(2)
+            os.execv(sys.executable, [sys.executable, '-m', 'bot.main'])
+        else:
+            error = result.stderr.strip()
+            await message.answer(f'❌ Git pull failed:\n{error[:500]}')
+    except Exception as e:
+        await message.answer(f'❌ Update failed: {str(e)[:200]}')
+
+
+# ═══════════════════════════════════════
+#  /strategy - AI Growth Strategy
+# ═══════════════════════════════════════
+@router.message(Command('strategy'))
+async def cmd_strategy(message: Message):
+    if not is_admin(message):
+        return
+
+    args = message.text.split(maxsplit=1)
+    goal = args[1].strip() if len(args) > 1 else 'grow followers fast'
+
+    await message.answer('🧠 Creating your growth strategy...')
+
+    from utils.gemini_ai import create_strategy
+
+    result = await create_strategy(goal=goal)
+    if len(result) > 4000:
+        for i in range(0, len(result), 4000):
+            await message.answer(result[i:i+4000])
+    else:
+        await message.answer(result)
+
+
+# ═══════════════════════════════════════
+#  /research - Trending Topics Research
+# ═══════════════════════════════════════
+@router.message(Command('research'))
+async def cmd_research(message: Message):
+    if not is_admin(message):
+        return
+
+    args = message.text.split(maxsplit=1)
+    niche = args[1].strip() if len(args) > 1 else 'entertainment'
+
+    await message.answer(f'🔍 Researching trending topics in {niche}...')
+
+    from utils.gemini_ai import research_trending
+
+    result = await research_trending(niche=niche)
+    if len(result) > 4000:
+        for i in range(0, len(result), 4000):
+            await message.answer(result[i:i+4000])
+    else:
+        await message.answer(result)
+
+
+# ═══════════════════════════════════════
+#  CONVERSATIONAL AI - Catch All Messages
+#  (MUST be LAST handler - catches everything)
+# ═══════════════════════════════════════
+@router.message(F.text)
+async def chat_handler(message: Message):
+    if not is_admin(message):
+        return await message.answer('⛔ Unauthorized.')
+
+    user_text = message.text.strip()
+    if not user_text or user_text.startswith('/'):
+        return
+
+    from aiogram.enums import ChatAction
+    await message.bot.send_chat_action(message.chat.id, ChatAction.TYPING)
+
+    from utils.gemini_ai import chat_with_ai
+
+    reply = await chat_with_ai(user_message=user_text)
+
+    if len(reply) > 4000:
+        for i in range(0, len(reply), 4000):
+            await message.answer(reply[i:i+4000])
+    else:
+        await message.answer(reply)
